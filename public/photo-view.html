@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Photo - VR Photobooth</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 1rem;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .photo-container {
+            margin: 2rem 0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            background: #222;
+            position: relative;
+        }
+
+        .photo {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 500px;
+            object-fit: contain;
+        }
+
+        .loading-placeholder {
+            width: 100%;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .share-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .share-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            opacity: 0.9;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .share-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .share-btn.facebook { background: #3b5998; }
+        .share-btn.twitter { background: #1da1f2; }
+        .share-btn.instagram { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
+        .share-btn.whatsapp { background: #25d366; }
+        .share-btn.email { background: #666; }
+
+        .share-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .metadata {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .error-message {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 0.5rem;
+                padding: 1.5rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 200px;
+            }
+            
+            .share-buttons {
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="logo">VR Photobooth</h1>
+        <p>Your captured moment is ready!</p>
+        
+        <div class="photo-container" id="photo-container">
+            <div class="loading-placeholder" id="loading-placeholder">
+                <div class="spinner"></div>
+                <span>Loading your photo...</span>
+            </div>
+        </div>
+        
+        <div class="action-buttons" id="action-buttons" style="display: none;">
+            <a href="#" class="btn btn-primary" id="download-btn" download>
+                📥 Download Photo
+            </a>
+            <button class="btn btn-secondary" onclick="sharePhoto()">
+                📤 Share
+            </button>
+            <a href="/app" class="btn btn-secondary">
+                📷 Take Another
+            </a>
+        </div>
+        
+        <div class="share-section" id="share-section" style="display: none;">
+            <h3 class="share-title">Share your photo</h3>
+            <div class="share-buttons">
+                <button class="share-btn facebook" onclick="shareToFacebook()" title="Share on Facebook">
+                    📘
+                </button>
+                <button class="share-btn twitter" onclick="shareToTwitter()" title="Share on Twitter">
+                    🐦
+                </button>
+                <button class="share-btn instagram" onclick="shareToInstagram()" title="Share on Instagram">
+                    📷
+                </button>
+                <button class="share-btn whatsapp" onclick="shareToWhatsApp()" title="Share on WhatsApp">
+                    💬
+                </button>
+                <button class="share-btn email" onclick="shareByEmail()" title="Share by Email">
+                    ✉️
+                </button>
+            </div>
+        </div>
+        
+        <div class="metadata" id="metadata" style="display: none;">
+            <p>📅 <span id="capture-date"></span></p>
+            <p>🌐 <span id="session-id"></span></p>
+        </div>
+        
+        <div class="error-message" id="error-message" style="display: none;">
+            Photo not found or session expired.
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let sessionId = null;
+        let photoUrl = null;
+        let shareUrl = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Extract session ID from URL
+                const pathParts = window.location.pathname.split('/');
+                sessionId = pathParts[1]; // Should be the session ID
+                
+                if (!sessionId) {
+                    throw new Error('Invalid session ID');
+                }
+                
+                // Load session data
+                await loadSessionData();
+                
+                // Load photo
+                await loadPhoto();
+                
+                // Show UI elements
+                showPhotoUI();
+                
+            } catch (error) {
+                console.error('Failed to load photo:', error);
+                showError(error.message);
+            }
+        });
+
+        /**
+         * Load session data from API
+         */
+        async function loadSessionData() {
+            try {
+                const response = await fetch(`/api/session/${sessionId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Session not found');
+                }
+                
+                const data = await response.json();
+                
+                // Update metadata
+                const captureDate = document.getElementById('capture-date');
+                const sessionIdElement = document.getElementById('session-id');
+                
+                if (captureDate) {
+                    captureDate.textContent = new Date(data.created).toLocaleString();
+                }
+                
+                if (sessionIdElement) {
+                    sessionIdElement.textContent = sessionId;
+                }
+                
+                // Check if photo exists
+                if (!data.hasPhoto) {
+                    throw new Error('Photo not available for this session');
+                }
+                
+                console.log('Session data loaded:', data);
+                
+            } catch (error) {
+                console.error('Failed to load session data:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * Load photo from server
+         */
+        async function loadPhoto() {
+            try {
+                photoUrl = `/${sessionId}/photo`;
+                shareUrl = window.location.href;
+                
+                const img = document.createElement('img');
+                img.className = 'photo';
+                img.alt = 'Your VR Photobooth Photo';
+                
+                // Set up download link
+                const downloadBtn = document.getElementById('download-btn');
+                if (downloadBtn) {
+                    downloadBtn.href = `/${sessionId}/download`;
+                    downloadBtn.download = `photobooth-${sessionId}.png`;
+                }
+                
+                // Load image
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = () => reject(new Error('Failed to load photo'));
+                    img.src = photoUrl;
+                });
+                
+                // Replace loading placeholder with photo
+                const photoContainer = document.getElementById('photo-container');
+                if (photoContainer) {
+                    photoContainer.innerHTML = '';
+                    photoContainer.appendChild(img);
+                }
+                
+                console.log('Photo loaded successfully');
+                
+            } catch (error) {
+                console.error('Failed to load photo:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * Show photo UI elements
+         */
+        function showPhotoUI() {
+            const actionButtons = document.getElementById('action-buttons');
+            const shareSection = document.getElementById('share-section');
+            const metadata = document.getElementById('metadata');
+            
+            if (actionButtons) actionButtons.style.display = 'flex';
+            if (shareSection) shareSection.style.display = 'block';
+            if (metadata) metadata.style.display = 'block';
+        }
+
+        /**
+         * Show error message
+         */
+        function showError(message) {
+            const loadingPlaceholder = document.getElementById('loading-placeholder');
+            const errorMessage = document.getElementById('error-message');
+            
+            if (loadingPlaceholder) {
+                loadingPlaceholder.style.display = 'none';
+            }
+            
+            if (errorMessage) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        /**
+         * Toggle share section visibility
+         */
+        function sharePhoto() {
+            const shareSection = document.getElementById('share-section');
+            if (shareSection) {
+                const isVisible = shareSection.style.display !== 'none';
+                shareSection.style.display = isVisible ? 'none' : 'block';
+            }
+        }
+
+        /**
+         * Share to Facebook
+         */
+        function shareToFacebook() {
+            const url = encodeURIComponent(shareUrl);
+            const text = encodeURIComponent('Check out my VR Photobooth photo!');
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank', 'width=600,height=400');
+        }
+
+        /**
+         * Share to Twitter
+         */
+        function shareToTwitter() {
+            const url = encodeURIComponent(shareUrl);
+            const text = encodeURIComponent('Just captured an amazing moment with VR Photobooth! 📸✨');
+            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'width=600,height=400');
+        }
+
+        /**
+         * Share to Instagram (opens Instagram web)
+         */
+        function shareToInstagram() {
+            // Instagram doesn't support direct web sharing, so open Instagram web
+            window.open('https://www.instagram.com/', '_blank');
+            
+            // Copy URL to clipboard for manual sharing
+            copyToClipboard(shareUrl);
+            alert('Link copied to clipboard! You can paste it in your Instagram post or story.');
+        }
+
+        /**
+         * Share to WhatsApp
+         */
+        function shareToWhatsApp() {
+            const text = encodeURIComponent(`Check out my VR Photobooth photo! ${shareUrl}`);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
+        /**
+         * Share by Email
+         */
+        function shareByEmail() {
+            const subject = encodeURIComponent('My VR Photobooth Photo');
+            const body = encodeURIComponent(`Hi!\n\nI just captured this amazing photo using VR Photobooth! Check it out:\n\n${shareUrl}\n\nBest regards!`);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        }
+
+        /**
+         * Copy text to clipboard
+         */
+        function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.error('Failed to copy to clipboard:', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        /**
+         * Native Web Share API (if available)
+         */
+        function shareNative() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'VR Photobooth Photo',
+                    text: 'Check out my VR Photobooth photo!',
+                    url: shareUrl
+                }).catch(err => console.log('Error sharing:', err));
+            } else {
+                sharePhoto(); // Fallback to custom share UI
+            }
+        }
+
+        // Add native share support for mobile
+        if (navigator.share) {
+            const shareButton = document.querySelector('button[onclick="sharePhoto()"]');
+            if (shareButton) {
+                shareButton.onclick = shareNative;
+            }
+        }
+    </script>
+</body>
+</html>

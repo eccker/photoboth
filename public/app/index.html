@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Photobooth - 3D Experience</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            overflow: hidden;
+            color: white;
+        }
+
+        #main-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 3D Scene Container */
+        #scene-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Camera Feed Thumbnail */
+        #camera-thumbnail {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            height: 240px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+
+        #detection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* UI Controls */
+        #ui-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Virtual Capture Button */
+        #virtual-capture-btn {
+            position: absolute;
+            top: 50%;
+            right: 50px;
+            transform: translateY(-50%);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        #virtual-capture-btn:hover,
+        #virtual-capture-btn.active {
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 30px rgba(255, 107, 107, 0.6);
+        }
+
+        /* Status Indicator */
+        #status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #4ecdc4;
+        }
+
+        .status-dot.disconnected {
+            background: #ff6b6b;
+        }
+
+        /* QR Code Modal */
+        #qr-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        #qr-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            text-align: center;
+            color: #333;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        #qr-code-image {
+            max-width: 100%;
+            margin: 1rem 0;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+
+        .close-modal:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Loading Indicator */
+        #loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 20;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Media Queries */
+        @media (max-width: 768px) {
+            #camera-thumbnail {
+                width: 280px;
+                height: 210px;
+            }
+            
+            #virtual-capture-btn {
+                right: 20px;
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+            
+            #ui-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <!-- Loading Indicator -->
+        <div id="loading-indicator">
+            <div class="spinner"></div>
+            <p>Initializing camera and detection systems...</p>
+        </div>
+
+        <!-- 3D Scene -->
+        <div id="scene-container"></div>
+
+        <!-- Camera Feed Thumbnail -->
+        <div id="camera-thumbnail">
+            <video id="video-feed" autoplay muted playsinline></video>
+            <canvas id="detection-overlay"></canvas>
+        </div>
+
+        <!-- Virtual Capture Button -->
+        <div id="virtual-capture-btn" title="Touch with your hand to capture!">
+            📸
+        </div>
+
+        <!-- Status Indicator -->
+        <div id="status-indicator">
+            <span class="status-dot disconnected" id="status-dot"></span>
+            <span id="status-text">Initializing...</span>
+        </div>
+
+        <!-- UI Controls -->
+        <div id="ui-controls">
+            <button class="control-btn" id="toggle-camera">Toggle Camera</button>
+            <button class="control-btn" id="reset-scene">Reset Scene</button>
+            <button class="control-btn" id="capture-photo">Capture Photo</button>
+        </div>
+
+        <!-- QR Code Modal -->
+        <div id="qr-modal">
+            <button class="close-modal" id="close-qr-modal">×</button>
+            <div id="qr-content">
+                <h2>Photo Captured!</h2>
+                <img id="qr-code-image" alt="QR Code">
+                <p>Scan this QR code to view and download your photo</p>
+                <p id="photo-url"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    
+    <!-- MediaPipe Web Solutions -->
+    <script>
+        // Make MediaPipe available globally for our modules
+        window.MediaPipe = null;
+        
+        // Load MediaPipe Tasks Vision
+        import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js')
+            .then(module => {
+                window.MediaPipe = module;
+                console.log('MediaPipe loaded globally');
+            })
+            .catch(error => {
+                console.warn('Failed to load MediaPipe:', error);
+            });
+    </script>
+    
+    <!-- Application Scripts -->
+    <script type="module" src="/js/camera-manager.js"></script>
+    <script type="module" src="/js/mediapipe-handler.js"></script>
+    <script type="module" src="/js/three-scene.js"></script>
+    <script type="module" src="/js/virtual-interaction.js"></script>
+    <script type="module" src="/js/photo-capture.js"></script>
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>
