@@ -178,32 +178,36 @@ export class PhotoCaptureManager {
     }
 
     /**
-     * Create composite image from camera and 3D scene
+     * Create composite image from scene and camera
      */
     async createCompositeImage() {
-        const { width, height } = this.captureSettings;
-        
-        // Setup capture canvas
-        this.captureCanvas.width = width;
-        this.captureCanvas.height = height;
-        const ctx = this.captureCanvas.getContext('2d');
-        
-        // Clear canvas
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
-        
         try {
-            // Capture 3D scene
-            const sceneImage = await this.captureSceneImage();
+            const { width, height } = this.captureSettings;
             
-            // Capture camera feed (if enabled)
-            let cameraImage = null;
-            if (this.captureSettings.includeOverlay && this.cameraManager) {
-                cameraImage = await this.captureCameraImage();
+            // IMPORTANT: Force a render of the 3D scene before capturing
+            if (this.sceneManager && this.sceneManager.renderer) {
+                console.log('🎬 Rendering fresh 3D scene frame before capture...');
+                this.sceneManager.renderer.render(this.sceneManager.scene, this.sceneManager.camera);
             }
             
-            // Composite images based on mode
-            await this.compositeImages(ctx, sceneImage, cameraImage);
+            // Set canvas size
+            this.captureCanvas.width = width;
+            this.captureCanvas.height = height;
+            
+            const ctx = this.captureCanvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            // Fill with background color (black like the app)
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Capture the entire viewport instead of just the 3D scene
+            await this.captureFullViewport(ctx, width, height);
+            
+            // Add timestamp watermark
+            this.addWatermark(ctx, width, height);
             
             // Convert to blob
             return new Promise((resolve) => {
@@ -221,6 +225,114 @@ export class PhotoCaptureManager {
     }
 
     /**
+     * Capture the full viewport including 3D scene, webcam, and overlays
+     */
+    async captureFullViewport(ctx, targetWidth, targetHeight) {
+        const mainContainer = document.getElementById('main-container');
+        if (!mainContainer) {
+            throw new Error('Main container not found');
+        }
+
+        // Get all the elements we need to capture
+        const sceneCanvas = this.sceneManager?.renderer?.domElement;
+        const videoThumbnail = document.getElementById('camera-thumbnail');
+        const videoElement = document.getElementById('video-feed');
+        const detectionCanvas = document.getElementById('detection-overlay');
+        
+        console.log('📸 Capturing viewport elements:', {
+            hasSceneCanvas: !!sceneCanvas,
+            hasVideoThumbnail: !!videoThumbnail,
+            hasVideoElement: !!videoElement,
+            hasDetectionCanvas: !!detectionCanvas,
+            sceneCanvasSize: sceneCanvas ? `${sceneCanvas.width}x${sceneCanvas.height}` : 'N/A'
+        });
+        
+        // Calculate scale factor
+        const containerWidth = mainContainer.offsetWidth;
+        const containerHeight = mainContainer.offsetHeight;
+        const scale = Math.min(targetWidth / containerWidth, targetHeight / containerHeight);
+        
+        console.log('📐 Scale calculation:', { containerWidth, containerHeight, targetWidth, targetHeight, scale });
+        
+        // STEP 1: Draw 3D scene as background (full viewport)
+        if (sceneCanvas && sceneCanvas.width > 0 && sceneCanvas.height > 0) {
+            console.log('✅ Drawing 3D scene canvas');
+            ctx.save();
+            ctx.drawImage(sceneCanvas, 0, 0, targetWidth, targetHeight);
+            ctx.restore();
+        } else {
+            console.warn('⚠️ No valid scene canvas found, filling with black background');
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+        }
+        
+        // STEP 2: Draw camera thumbnail with detection overlay at the same position as on screen
+        if (videoThumbnail && videoElement && videoElement.readyState >= 2) {
+            console.log('✅ Drawing video thumbnail');
+            const thumbnailRect = videoThumbnail.getBoundingClientRect();
+            const containerRect = mainContainer.getBoundingClientRect();
+            
+            // Calculate position relative to container, scaled to target size
+            const thumbX = (thumbnailRect.left - containerRect.left) * scale;
+            const thumbY = (thumbnailRect.top - containerRect.top) * scale;
+            const thumbWidth = thumbnailRect.width * scale;
+            const thumbHeight = thumbnailRect.height * scale;
+            
+            console.log('📍 Thumbnail position:', { thumbX, thumbY, thumbWidth, thumbHeight });
+            
+            // Draw thumbnail background/border
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(thumbX - 3 * scale, thumbY - 3 * scale, thumbWidth + 6 * scale, thumbHeight + 6 * scale);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 3 * scale;
+            ctx.strokeRect(thumbX, thumbY, thumbWidth, thumbHeight);
+            ctx.restore();
+            
+            // Draw video frame
+            ctx.save();
+            // Clip to rounded rectangle area
+            this.roundRect(ctx, thumbX, thumbY, thumbWidth, thumbHeight, 15 * scale);
+            ctx.clip();
+            
+            // Draw mirrored video (matching the CSS transform)
+            ctx.translate(thumbX + thumbWidth, thumbY);
+            ctx.scale(-1, 1);
+            ctx.drawImage(videoElement, 0, 0, thumbWidth, thumbHeight);
+            ctx.restore();
+            
+            // Draw detection overlay on top
+            if (detectionCanvas && detectionCanvas.width > 0) {
+                console.log('✅ Drawing detection overlay');
+                ctx.save();
+                this.roundRect(ctx, thumbX, thumbY, thumbWidth, thumbHeight, 15 * scale);
+                ctx.clip();
+                ctx.drawImage(detectionCanvas, thumbX, thumbY, thumbWidth, thumbHeight);
+                ctx.restore();
+            }
+        } else {
+            console.warn('⚠️ Video thumbnail not ready or not found');
+        }
+        
+        console.log('✅ Viewport capture complete');
+    }
+
+    /**
+     * Helper to draw rounded rectangle
+     */
+    roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }    /**
      * Capture 3D scene image
      */
     async captureSceneImage() {
