@@ -179,35 +179,58 @@ export class PhotoCaptureManager {
 
     /**
      * Create composite image from scene and camera
+     * Captures exactly what the user sees on screen
      */
     async createCompositeImage() {
         try {
-            const { width, height } = this.captureSettings;
-            
-            // IMPORTANT: Force a render of the 3D scene before capturing
-            if (this.sceneManager && this.sceneManager.renderer) {
-                console.log('🎬 Rendering fresh 3D scene frame before capture...');
-                this.sceneManager.renderer.render(this.sceneManager.scene, this.sceneManager.camera);
+            // Get the main container that holds everything
+            const mainContainer = document.getElementById('main-container');
+            if (!mainContainer) {
+                throw new Error('Main container not found');
             }
             
-            // Set canvas size
-            this.captureCanvas.width = width;
-            this.captureCanvas.height = height;
+            console.log('📸 Capturing viewport exactly as user sees it...');
+            
+            // Get actual displayed dimensions
+            const displayWidth = mainContainer.offsetWidth;
+            const displayHeight = mainContainer.offsetHeight;
+            
+            // Use display aspect ratio for capture (or fixed size maintaining aspect)
+            const captureWidth = 1920;
+            const captureHeight = Math.round((displayHeight / displayWidth) * captureWidth);
+            
+            // Set canvas to capture size
+            this.captureCanvas.width = captureWidth;
+            this.captureCanvas.height = captureHeight;
             
             const ctx = this.captureCanvas.getContext('2d');
             
             // Clear canvas
-            ctx.clearRect(0, 0, width, height);
+            ctx.clearRect(0, 0, captureWidth, captureHeight);
             
-            // Fill with background color (black like the app)
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, width, height);
+            // STEP 1: Draw the 3D scene (background)
+            const sceneCanvas = this.sceneManager?.renderer?.domElement;
+            if (sceneCanvas && sceneCanvas.width > 0 && sceneCanvas.height > 0) {
+                console.log('🎨 Drawing 3D scene background');
+                // Force fresh render
+                this.sceneManager.renderer.render(this.sceneManager.scene, this.sceneManager.camera);
+                // Draw fullscreen
+                ctx.drawImage(sceneCanvas, 0, 0, captureWidth, captureHeight);
+            } else {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, captureWidth, captureHeight);
+            }
             
-            // Capture the entire viewport instead of just the 3D scene
-            await this.captureFullViewport(ctx, width, height);
+            // STEP 2: Draw the webcam thumbnail at its exact position
+            await this.drawWebcamThumbnail(ctx, mainContainer, captureWidth, captureHeight);
             
-            // Add timestamp watermark
-            this.addWatermark(ctx, width, height);
+            // STEP 3: Draw the detection overlay at the same position
+            await this.drawDetectionOverlay(ctx, mainContainer, captureWidth, captureHeight);
+            
+            // STEP 4: Add timestamp watermark
+            this.addWatermark(ctx, captureWidth, captureHeight);
+            
+            console.log(`✅ Captured image: ${captureWidth}x${captureHeight}`);
             
             // Convert to blob
             return new Promise((resolve) => {
@@ -225,96 +248,99 @@ export class PhotoCaptureManager {
     }
 
     /**
-     * Capture the full viewport including 3D scene, webcam, and overlays
+     * Draw webcam thumbnail at its screen position
      */
-    async captureFullViewport(ctx, targetWidth, targetHeight) {
-        const mainContainer = document.getElementById('main-container');
-        if (!mainContainer) {
-            throw new Error('Main container not found');
-        }
-
-        // Get all the elements we need to capture
-        const sceneCanvas = this.sceneManager?.renderer?.domElement;
-        const videoThumbnail = document.getElementById('camera-thumbnail');
+    async drawWebcamThumbnail(ctx, mainContainer, captureWidth, captureHeight) {
         const videoElement = document.getElementById('video-feed');
-        const detectionCanvas = document.getElementById('detection-overlay');
+        const thumbnailContainer = document.getElementById('camera-thumbnail');
         
-        console.log('📸 Capturing viewport elements:', {
-            hasSceneCanvas: !!sceneCanvas,
-            hasVideoThumbnail: !!videoThumbnail,
-            hasVideoElement: !!videoElement,
-            hasDetectionCanvas: !!detectionCanvas,
-            sceneCanvasSize: sceneCanvas ? `${sceneCanvas.width}x${sceneCanvas.height}` : 'N/A'
-        });
+        if (!videoElement || !thumbnailContainer || videoElement.readyState < 2) {
+            console.warn('⚠️ Video not ready for capture');
+            return;
+        }
+        
+        // Get positions relative to main container
+        const containerRect = mainContainer.getBoundingClientRect();
+        const thumbRect = thumbnailContainer.getBoundingClientRect();
         
         // Calculate scale factor
-        const containerWidth = mainContainer.offsetWidth;
-        const containerHeight = mainContainer.offsetHeight;
-        const scale = Math.min(targetWidth / containerWidth, targetHeight / containerHeight);
+        const scaleX = captureWidth / containerRect.width;
+        const scaleY = captureHeight / containerRect.height;
         
-        console.log('📐 Scale calculation:', { containerWidth, containerHeight, targetWidth, targetHeight, scale });
+        // Calculate thumbnail position and size in capture space
+        const thumbX = (thumbRect.left - containerRect.left) * scaleX;
+        const thumbY = (thumbRect.top - containerRect.top) * scaleY;
+        const thumbWidth = thumbRect.width * scaleX;
+        const thumbHeight = thumbRect.height * scaleY;
         
-        // STEP 1: Draw 3D scene as background (full viewport)
-        if (sceneCanvas && sceneCanvas.width > 0 && sceneCanvas.height > 0) {
-            console.log('✅ Drawing 3D scene canvas');
-            ctx.save();
-            ctx.drawImage(sceneCanvas, 0, 0, targetWidth, targetHeight);
-            ctx.restore();
+        console.log('📹 Drawing webcam thumbnail at:', { thumbX, thumbY, thumbWidth, thumbHeight });
+        
+        ctx.save();
+        
+        // Apply border radius clipping
+        const borderRadius = 15 * scaleX;
+        ctx.beginPath();
+        this.roundRect(ctx, thumbX, thumbY, thumbWidth, thumbHeight, borderRadius);
+        ctx.clip();
+        
+        // Apply mirror transform
+        ctx.translate(thumbX + thumbWidth, thumbY);
+        ctx.scale(-1, 1);
+        
+        // Draw video maintaining aspect ratio (object-fit: cover)
+        const videoAspect = videoElement.videoWidth / videoElement.videoHeight;
+        const thumbAspect = thumbWidth / thumbHeight;
+        
+        let drawWidth = thumbWidth;
+        let drawHeight = thumbHeight;
+        let drawX = 0;
+        let drawY = 0;
+        
+        if (videoAspect > thumbAspect) {
+            // Video wider - crop sides
+            drawHeight = thumbHeight;
+            drawWidth = thumbHeight * videoAspect;
+            drawX = -(drawWidth - thumbWidth) / 2;
         } else {
-            console.warn('⚠️ No valid scene canvas found, filling with black background');
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, targetWidth, targetHeight);
+            // Video taller - crop top/bottom
+            drawWidth = thumbWidth;
+            drawHeight = thumbWidth / videoAspect;
+            drawY = -(drawHeight - thumbHeight) / 2;
         }
         
-        // STEP 2: Draw camera thumbnail with detection overlay at the same position as on screen
-        if (videoThumbnail && videoElement && videoElement.readyState >= 2) {
-            console.log('✅ Drawing video thumbnail');
-            const thumbnailRect = videoThumbnail.getBoundingClientRect();
-            const containerRect = mainContainer.getBoundingClientRect();
-            
-            // Calculate position relative to container, scaled to target size
-            const thumbX = (thumbnailRect.left - containerRect.left) * scale;
-            const thumbY = (thumbnailRect.top - containerRect.top) * scale;
-            const thumbWidth = thumbnailRect.width * scale;
-            const thumbHeight = thumbnailRect.height * scale;
-            
-            console.log('📍 Thumbnail position:', { thumbX, thumbY, thumbWidth, thumbHeight });
-            
-            // Draw thumbnail background/border
-            ctx.save();
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(thumbX - 3 * scale, thumbY - 3 * scale, thumbWidth + 6 * scale, thumbHeight + 6 * scale);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 3 * scale;
-            ctx.strokeRect(thumbX, thumbY, thumbWidth, thumbHeight);
-            ctx.restore();
-            
-            // Draw video frame
-            ctx.save();
-            // Clip to rounded rectangle area
-            this.roundRect(ctx, thumbX, thumbY, thumbWidth, thumbHeight, 15 * scale);
-            ctx.clip();
-            
-            // Draw mirrored video (matching the CSS transform)
-            ctx.translate(thumbX + thumbWidth, thumbY);
-            ctx.scale(-1, 1);
-            ctx.drawImage(videoElement, 0, 0, thumbWidth, thumbHeight);
-            ctx.restore();
-            
-            // Draw detection overlay on top
-            if (detectionCanvas && detectionCanvas.width > 0) {
-                console.log('✅ Drawing detection overlay');
-                ctx.save();
-                this.roundRect(ctx, thumbX, thumbY, thumbWidth, thumbHeight, 15 * scale);
-                ctx.clip();
-                ctx.drawImage(detectionCanvas, thumbX, thumbY, thumbWidth, thumbHeight);
-                ctx.restore();
-            }
-        } else {
-            console.warn('⚠️ Video thumbnail not ready or not found');
+        ctx.drawImage(videoElement, drawX, drawY, drawWidth, drawHeight);
+        
+        ctx.restore();
+    }
+
+    /**
+     * Draw detection overlay at its screen position
+     */
+    async drawDetectionOverlay(ctx, mainContainer, captureWidth, captureHeight) {
+        const detectionCanvas = document.getElementById('detection-overlay');
+        
+        if (!detectionCanvas) {
+            console.warn('⚠️ Detection overlay not found');
+            return;
         }
         
-        console.log('✅ Viewport capture complete');
+        // Get positions
+        const containerRect = mainContainer.getBoundingClientRect();
+        const overlayRect = detectionCanvas.getBoundingClientRect();
+        
+        // Calculate scale
+        const scaleX = captureWidth / containerRect.width;
+        const scaleY = captureHeight / containerRect.height;
+        
+        // Calculate overlay position in capture space
+        const overlayX = (overlayRect.left - containerRect.left) * scaleX;
+        const overlayY = (overlayRect.top - containerRect.top) * scaleY;
+        const overlayWidth = overlayRect.width * scaleX;
+        const overlayHeight = overlayRect.height * scaleY;
+        
+        console.log('🎯 Drawing detection overlay at:', { overlayX, overlayY, overlayWidth, overlayHeight });
+        
+        ctx.drawImage(detectionCanvas, overlayX, overlayY, overlayWidth, overlayHeight);
     }
 
     /**
@@ -332,7 +358,9 @@ export class PhotoCaptureManager {
         ctx.lineTo(x, y + radius);
         ctx.quadraticCurveTo(x, y, x + radius, y);
         ctx.closePath();
-    }    /**
+    }
+
+    /**
      * Capture 3D scene image
      */
     async captureSceneImage() {
@@ -512,6 +540,8 @@ export class PhotoCaptureManager {
             });
             
             const result = JSON.parse(response);
+            console.log('Upload response:', result.photoUrl);
+
             
             if (!result.success) {
                 throw new Error(result.error || 'Upload failed');
@@ -569,12 +599,15 @@ export class PhotoCaptureManager {
     showQRCodeModal(result) {
         const modal = document.getElementById('qr-modal');
         const qrImage = document.getElementById('qr-code-image');
-        const photoUrl = document.getElementById('photo-url');
+        const photoUrlLink = document.getElementById('photo-url');
         
         if (modal && qrImage && result.qrCode) {
             qrImage.src = result.qrCode;
-            if (photoUrl) {
-                photoUrl.textContent = result.photoUrl;
+            if (photoUrlLink && result.photoUrl) {
+                // Set both href and text content
+                const fullUrl = window.location.origin + result.photoUrl;
+                photoUrlLink.href = fullUrl;
+                photoUrlLink.textContent = fullUrl;
             }
             modal.style.display = 'flex';
             

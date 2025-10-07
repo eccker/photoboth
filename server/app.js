@@ -163,7 +163,7 @@ app.post('/api/upload/:sessionId', upload.single('photo'), async (req, res) => {
     session.photoPath = req.file.path;
     
     // Generate QR code for the photo viewing URL
-    const photoViewUrl = `http://localhost:${PORT}/${sessionId}/`;
+    const photoViewUrl = `https://localhost:${PORT}/${sessionId}/`;
     const qrCodeDataUrl = await QRCode.toDataURL(photoViewUrl, {
       width: 256,
       margin: 2,

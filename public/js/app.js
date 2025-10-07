@@ -33,6 +33,13 @@ class VRPhotoboothApp {
         this.lastFpsUpdate = 0;
         this.fps = 0;
         
+        // Gesture-based photo capture
+        this.peaceSignStartTime = null;
+        this.peaceSignDuration = 3000; // 3 seconds
+        this.gestureTimerElement = null;
+        this.isCapturingFromGesture = false;
+        this.lastGestureState = null;
+        
         console.log('VR Photobooth App created');
     }
 
@@ -89,6 +96,7 @@ class VRPhotoboothApp {
         this.detectionCanvas = document.getElementById('detection-overlay');
         this.statusIndicator = document.getElementById('status-indicator');
         this.loadingIndicator = document.getElementById('loading-indicator');
+        this.gestureTimerElement = document.getElementById('gesture-timer');
         
         if (!this.videoElement || !this.detectionCanvas) {
             throw new Error('Required DOM elements not found');
@@ -297,6 +305,73 @@ class VRPhotoboothApp {
         if (this.interactionHandler) {
             this.interactionHandler.updateHandPositions(hands);
         }
+        
+        // Check for peace sign gesture
+        this.checkPeaceSignGesture(hands);
+    }
+
+    /**
+     * Check for peace sign gesture and trigger photo after 3 seconds
+     */
+    checkPeaceSignGesture(hands) {
+        // Check if any hand is showing peace sign
+        const hasPeaceSign = hands.some(hand => hand.gesture === 'peace');
+        
+        if (hasPeaceSign && !this.isCapturingFromGesture) {
+            // Peace sign detected
+            if (!this.peaceSignStartTime) {
+                // Start the timer
+                this.peaceSignStartTime = Date.now();
+                console.log('✌️ Peace sign detected! Hold for 3 seconds to capture...');
+            } else {
+                // Update timer
+                const elapsed = Date.now() - this.peaceSignStartTime;
+                const remaining = Math.ceil((this.peaceSignDuration - elapsed) / 1000);
+                
+                if (remaining > 0) {
+                    // Show countdown
+                    this.showGestureTimer(remaining);
+                } else if (!this.isCapturingFromGesture) {
+                    // Time's up - capture photo!
+                    this.isCapturingFromGesture = true;
+                    this.hideGestureTimer();
+                    console.log('📸 Peace sign held for 3 seconds! Capturing photo...');
+                    this.capturePhoto();
+                    
+                    // Reset after capture
+                    setTimeout(() => {
+                        this.isCapturingFromGesture = false;
+                        this.peaceSignStartTime = null;
+                    }, 2000);
+                }
+            }
+        } else {
+            // Peace sign not detected or capture in progress - reset timer
+            if (this.peaceSignStartTime && !this.isCapturingFromGesture) {
+                console.log('Peace sign lost, resetting timer');
+                this.peaceSignStartTime = null;
+                this.hideGestureTimer();
+            }
+        }
+    }
+
+    /**
+     * Show gesture countdown timer
+     */
+    showGestureTimer(count) {
+        if (this.gestureTimerElement) {
+            this.gestureTimerElement.textContent = count;
+            this.gestureTimerElement.classList.add('active');
+        }
+    }
+
+    /**
+     * Hide gesture countdown timer
+     */
+    hideGestureTimer() {
+        if (this.gestureTimerElement) {
+            this.gestureTimerElement.classList.remove('active');
+        }
     }
 
     /**
@@ -447,6 +522,9 @@ class VRPhotoboothApp {
     drawFaceLandmarks(ctx, faces) {
         const { width, height } = this.detectionCanvas;
         
+        // Get video scaling to handle aspect ratio mismatch and object-fit: cover
+        const scale = this.getVideoScale();
+        
         faces.forEach(face => {
             if (face.landmarks) {
                 ctx.strokeStyle = '#ff6b6b';
@@ -455,8 +533,17 @@ class VRPhotoboothApp {
                 
                 // Draw landmarks as small circles (flip X for mirrored video)
                 face.landmarks.forEach(landmark => {
-                    const x = (1 - landmark.x) * width; // Flip X coordinate
-                    const y = landmark.y * height;
+                    // Normalize to visible portion of video (account for cropping)
+                    const normalizedX = (landmark.x - scale.cropX) / scale.cropWidth;
+                    const normalizedY = (landmark.y - scale.cropY) / scale.cropHeight;
+                    
+                    // Skip if outside visible area
+                    if (normalizedX < 0 || normalizedX > 1 || normalizedY < 0 || normalizedY > 1) {
+                        return;
+                    }
+                    
+                    const x = (1 - normalizedX) * scale.width + scale.offsetX; // Flip X + scale
+                    const y = normalizedY * scale.height + scale.offsetY; // Scale Y
                     
                     ctx.beginPath();
                     ctx.arc(x, y, 1, 0, 2 * Math.PI);
@@ -466,12 +553,23 @@ class VRPhotoboothApp {
                 // Draw bounding box (flip X for mirrored video)
                 if (face.boundingBox) {
                     const bbox = face.boundingBox;
-                    ctx.strokeRect(
-                        (1 - bbox.x - bbox.width) * width, // Flip X coordinate
-                        bbox.y * height,
-                        bbox.width * width,
-                        bbox.height * height
-                    );
+                    
+                    // Normalize to visible portion
+                    const normalizedX = (bbox.x - scale.cropX) / scale.cropWidth;
+                    const normalizedY = (bbox.y - scale.cropY) / scale.cropHeight;
+                    const normalizedWidth = bbox.width / scale.cropWidth;
+                    const normalizedHeight = bbox.height / scale.cropHeight;
+                    
+                    // Only draw if at least partially visible
+                    if (normalizedX + normalizedWidth > 0 && normalizedX < 1 && 
+                        normalizedY + normalizedHeight > 0 && normalizedY < 1) {
+                        ctx.strokeRect(
+                            (1 - normalizedX - normalizedWidth) * scale.width + scale.offsetX,
+                            normalizedY * scale.height + scale.offsetY,
+                            normalizedWidth * scale.width,
+                            normalizedHeight * scale.height
+                        );
+                    }
                 }
             }
         });
@@ -483,6 +581,9 @@ class VRPhotoboothApp {
     drawHandLandmarks(ctx, hands) {
         const { width, height } = this.detectionCanvas;
         
+        // Get video scaling to handle aspect ratio mismatch and object-fit: cover
+        const scale = this.getVideoScale();
+        
         hands.forEach((hand, index) => {
             if (hand.landmarks) {
                 ctx.strokeStyle = index === 0 ? '#4ecdc4' : '#45b7d1';
@@ -491,8 +592,17 @@ class VRPhotoboothApp {
                 
                 // Draw landmarks (flip X for mirrored video)
                 hand.landmarks.forEach((landmark, i) => {
-                    const x = (1 - landmark.x) * width; // Flip X coordinate
-                    const y = landmark.y * height;
+                    // Normalize to visible portion of video (account for cropping)
+                    const normalizedX = (landmark.x - scale.cropX) / scale.cropWidth;
+                    const normalizedY = (landmark.y - scale.cropY) / scale.cropHeight;
+                    
+                    // Skip if outside visible area
+                    if (normalizedX < 0 || normalizedX > 1 || normalizedY < 0 || normalizedY > 1) {
+                        return;
+                    }
+                    
+                    const x = (1 - normalizedX) * scale.width + scale.offsetX; // Flip X + scale
+                    const y = normalizedY * scale.height + scale.offsetY; // Scale Y
                     
                     ctx.beginPath();
                     ctx.arc(x, y, 3, 0, 2 * Math.PI);
@@ -505,18 +615,23 @@ class VRPhotoboothApp {
                 });
                 
                 // Draw connections between landmarks
-                this.drawHandConnections(ctx, hand.landmarks, width, height);
+                this.drawHandConnections(ctx, hand.landmarks, scale);
                 
                 // Draw gesture label
                 if (hand.gesture && hand.gesture !== 'unknown') {
                     const bbox = hand.boundingBox;
                     if (bbox) {
-                        ctx.font = '14px Arial';
-                        ctx.fillText(
-                            hand.gesture,
-                            bbox.x * width,
-                            bbox.y * height - 10
-                        );
+                        const normalizedX = (bbox.x - scale.cropX) / scale.cropWidth;
+                        const normalizedY = (bbox.y - scale.cropY) / scale.cropHeight;
+                        
+                        if (normalizedX >= 0 && normalizedX <= 1 && normalizedY >= 0 && normalizedY <= 1) {
+                            ctx.font = '14px Arial';
+                            ctx.fillText(
+                                hand.gesture,
+                                normalizedX * scale.width + scale.offsetX,
+                                normalizedY * scale.height + scale.offsetY - 10
+                            );
+                        }
                     }
                 }
             }
@@ -526,7 +641,7 @@ class VRPhotoboothApp {
     /**
      * Draw hand landmark connections
      */
-    drawHandConnections(ctx, landmarks, width, height) {
+    drawHandConnections(ctx, landmarks, scale) {
         // Hand connection indices (simplified)
         const connections = [
             [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
@@ -540,13 +655,102 @@ class VRPhotoboothApp {
         ctx.lineWidth = 1;
         connections.forEach(([start, end]) => {
             if (landmarks[start] && landmarks[end]) {
+                // Normalize to visible portion of video (account for cropping)
+                const normalizedX1 = (landmarks[start].x - scale.cropX) / scale.cropWidth;
+                const normalizedY1 = (landmarks[start].y - scale.cropY) / scale.cropHeight;
+                const normalizedX2 = (landmarks[end].x - scale.cropX) / scale.cropWidth;
+                const normalizedY2 = (landmarks[end].y - scale.cropY) / scale.cropHeight;
+                
+                // Skip if both points are outside visible area
+                if ((normalizedX1 < 0 || normalizedX1 > 1 || normalizedY1 < 0 || normalizedY1 > 1) &&
+                    (normalizedX2 < 0 || normalizedX2 > 1 || normalizedY2 < 0 || normalizedY2 > 1)) {
+                    return;
+                }
+                
                 ctx.beginPath();
-                // Flip X coordinates for mirrored video
-                ctx.moveTo((1 - landmarks[start].x) * width, landmarks[start].y * height);
-                ctx.lineTo((1 - landmarks[end].x) * width, landmarks[end].y * height);
+                // Flip X coordinates for mirrored video + apply scaling
+                const x1 = (1 - normalizedX1) * scale.width + scale.offsetX;
+                const y1 = normalizedY1 * scale.height + scale.offsetY;
+                const x2 = (1 - normalizedX2) * scale.width + scale.offsetX;
+                const y2 = normalizedY2 * scale.height + scale.offsetY;
+                
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
                 ctx.stroke();
             }
         });
+    }
+
+    /**
+     * Calculate video scaling to handle aspect ratio mismatch
+     * Accounts for object-fit: cover cropping when video aspect != canvas aspect
+     * 
+     * With object-fit: cover, the video fills the container and crops the excess.
+     * MediaPipe processes the FULL video frame, but only a portion is visible.
+     */
+    getVideoScale() {
+        const canvas = this.detectionCanvas;
+        const video = this.cameraManager?.videoElement;
+        
+        if (!canvas || !video) {
+            return { 
+                width: canvas?.width || 0, 
+                height: canvas?.height || 0, 
+                offsetX: 0, 
+                offsetY: 0,
+                cropX: 0,
+                cropY: 0,
+                cropWidth: 1,
+                cropHeight: 1
+            };
+        }
+        
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const videoWidth = video.videoWidth || video.width || canvasWidth;
+        const videoHeight = video.videoHeight || video.height || canvasHeight;
+        
+        // Calculate aspect ratios
+        const videoAspect = videoWidth / videoHeight;
+        const canvasAspect = canvasWidth / canvasHeight;
+        
+        let scale = { 
+            width: canvasWidth, 
+            height: canvasHeight, 
+            offsetX: 0, 
+            offsetY: 0,
+            cropX: 0,
+            cropY: 0,
+            cropWidth: 1,
+            cropHeight: 1
+        };
+        
+        if (Math.abs(videoAspect - canvasAspect) > 0.01) {
+            // object-fit: cover behavior - video fills container and crops excess
+            if (videoAspect > canvasAspect) {
+                // Video is WIDER than canvas (e.g., 16:9 video in square container)
+                // Video height fills container, width is cropped on sides
+                const visibleVideoWidth = videoHeight * canvasAspect;
+                const cropAmount = (videoWidth - visibleVideoWidth) / videoWidth;
+                
+                scale.cropX = cropAmount / 2; // Crop equally from left and right
+                scale.cropWidth = 1 - cropAmount;
+                scale.width = canvasWidth;
+                scale.height = canvasHeight;
+            } else {
+                // Video is TALLER than canvas (e.g., portrait video in landscape container)
+                // Video width fills container, height is cropped on top/bottom
+                const visibleVideoHeight = videoWidth / canvasAspect;
+                const cropAmount = (videoHeight - visibleVideoHeight) / videoHeight;
+                
+                scale.cropY = cropAmount / 2; // Crop equally from top and bottom
+                scale.cropHeight = 1 - cropAmount;
+                scale.width = canvasWidth;
+                scale.height = canvasHeight;
+            }
+        }
+        
+        return scale;
     }
 
     /**
