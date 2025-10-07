@@ -453,9 +453,9 @@ class VRPhotoboothApp {
                 ctx.lineWidth = 1;
                 ctx.fillStyle = '#ff6b6b';
                 
-                // Draw landmarks as small circles
+                // Draw landmarks as small circles (flip X for mirrored video)
                 face.landmarks.forEach(landmark => {
-                    const x = landmark.x * width;
+                    const x = (1 - landmark.x) * width; // Flip X coordinate
                     const y = landmark.y * height;
                     
                     ctx.beginPath();
@@ -463,11 +463,11 @@ class VRPhotoboothApp {
                     ctx.fill();
                 });
                 
-                // Draw bounding box
+                // Draw bounding box (flip X for mirrored video)
                 if (face.boundingBox) {
                     const bbox = face.boundingBox;
                     ctx.strokeRect(
-                        bbox.x * width,
+                        (1 - bbox.x - bbox.width) * width, // Flip X coordinate
                         bbox.y * height,
                         bbox.width * width,
                         bbox.height * height
@@ -489,9 +489,9 @@ class VRPhotoboothApp {
                 ctx.lineWidth = 2;
                 ctx.fillStyle = ctx.strokeStyle;
                 
-                // Draw landmarks
+                // Draw landmarks (flip X for mirrored video)
                 hand.landmarks.forEach((landmark, i) => {
-                    const x = landmark.x * width;
+                    const x = (1 - landmark.x) * width; // Flip X coordinate
                     const y = landmark.y * height;
                     
                     ctx.beginPath();
@@ -541,8 +541,9 @@ class VRPhotoboothApp {
         connections.forEach(([start, end]) => {
             if (landmarks[start] && landmarks[end]) {
                 ctx.beginPath();
-                ctx.moveTo(landmarks[start].x * width, landmarks[start].y * height);
-                ctx.lineTo(landmarks[end].x * width, landmarks[end].y * height);
+                // Flip X coordinates for mirrored video
+                ctx.moveTo((1 - landmarks[start].x) * width, landmarks[start].y * height);
+                ctx.lineTo((1 - landmarks[end].x) * width, landmarks[end].y * height);
                 ctx.stroke();
             }
         });

@@ -559,8 +559,8 @@ export class ThreeSceneManager {
         
         // Position the face based on bounding box center
         if (boundingBox) {
-            // Convert normalized coordinates to 3D space
-            const x = (boundingBox.centerX - 0.5) * 4; // Scale to scene
+            // Convert normalized coordinates to 3D space (flip X for mirror)
+            const x = -(boundingBox.centerX - 0.5) * 4; // Flip X and scale
             const y = -(boundingBox.centerY - 0.5) * 3; // Flip Y and scale
             const z = 0;
             
@@ -571,9 +571,9 @@ export class ThreeSceneManager {
             group.scale.setScalar(scale);
         }
         
-        // Apply pose rotation if available
+        // Apply pose rotation if available (flip yaw for mirror)
         if (pose) {
-            head.rotation.y = (pose.yaw || 0) * (Math.PI / 180) * 0.5;
+            head.rotation.y = -(pose.yaw || 0) * (Math.PI / 180) * 0.5; // Flip yaw
             head.rotation.x = (pose.pitch || 0) * (Math.PI / 180) * 0.5;
             head.rotation.z = (pose.roll || 0) * (Math.PI / 180) * 0.5;
         }
@@ -599,8 +599,8 @@ export class ThreeSceneManager {
             const { landmarks, boundingBox } = handData;
             
             if (boundingBox) {
-                // Position hand
-                const x = (boundingBox.centerX - 0.5) * 6;
+                // Position hand (flip X for mirror)
+                const x = -(boundingBox.centerX - 0.5) * 6; // Flip X
                 const y = -(boundingBox.centerY - 0.5) * 4;
                 const z = 0.5;
                 
