@@ -605,7 +605,7 @@ export class PhotoCaptureManager {
             qrImage.src = result.qrCode;
             if (photoUrlLink && result.photoUrl) {
                 // Set both href and text content
-                const fullUrl = window.location.origin + result.photoUrl;
+                const fullUrl = result.photoUrl;
                 photoUrlLink.href = fullUrl;
                 photoUrlLink.textContent = fullUrl;
             }
