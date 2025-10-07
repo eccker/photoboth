@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaPipe Test</title>
+</head>
+<body>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message) {
+            console.log(message);
+            output.innerHTML += message + '<br>';
+        }
+        
+        log('Testing MediaPipe loading...');
+        
+        // Test 1: Try direct import
+        async function testDirectImport() {
+            try {
+                log('Test 1: Direct import...');
+                const mediapipe = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js');
+                log('✅ Direct import successful');
+                log('Available exports: ' + Object.keys(mediapipe).join(', '));
+                return mediapipe;
+            } catch (error) {
+                log('❌ Direct import failed: ' + error.message);
+                return null;
+            }
+        }
+        
+        // Test 2: Try script tag loading
+        function testScriptTag() {
+            return new Promise((resolve) => {
+                log('Test 2: Script tag loading...');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js';
+                script.onload = () => {
+                    log('✅ Script tag loaded');
+                    // Check if MediaPipe is available globally
+                    if (window.MediaPipeTasksVision) {
+                        log('✅ MediaPipeTasksVision available globally');
+                        resolve(window.MediaPipeTasksVision);
+                    } else if (window.MediaPipe) {
+                        log('✅ MediaPipe available globally');
+                        resolve(window.MediaPipe);
+                    } else {
+                        log('❌ MediaPipe not found in global scope');
+                        log('Available globals: ' + Object.keys(window).filter(k => k.includes('Media')).join(', '));
+                        resolve(null);
+                    }
+                };
+                script.onerror = (error) => {
+                    log('❌ Script tag failed to load: ' + error.message);
+                    resolve(null);
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Run tests
+        async function runTests() {
+            const result1 = await testDirectImport();
+            const result2 = await testScriptTag();
+            
+            if (result1 || result2) {
+                log('✅ MediaPipe is loadable!');
+                
+                // Try to create a basic vision task
+                try {
+                    const mp = result1 || result2;
+                    if (mp.FilesetResolver) {
+                        log('✅ FilesetResolver available');
+                    }
+                    if (mp.FaceLandmarker) {
+                        log('✅ FaceLandmarker available');
+                    }
+                    if (mp.HandLandmarker) {
+                        log('✅ HandLandmarker available');
+                    }
+                } catch (error) {
+                    log('❌ Error testing MediaPipe components: ' + error.message);
+                }
+            } else {
+                log('❌ MediaPipe could not be loaded from any source');
+            }
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>

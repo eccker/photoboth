@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
+import https from 'https';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -16,18 +17,19 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 7000;
 
-// Security and performance middleware
+// Security and performance middleware - CSP configured for MediaPipe
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:"],
+      imgSrc: ["'self'", "data:", "blob:", "https://storage.googleapis.com"],
       mediaSrc: ["'self'", "blob:"],
-      connectSrc: ["'self'", "blob:"],
-      workerSrc: ["'self'", "blob:"]
+      connectSrc: ["'self'", "blob:", "https://cdn.jsdelivr.net", "https://storage.googleapis.com"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"]
     }
   }
 }));
@@ -42,7 +44,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Set to true in production with HTTPS
+    secure: true, // HTTPS enabled
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -275,10 +277,17 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🎭 Photobooth VR server running on http://localhost:${PORT}`);
-  console.log(`📱 Main app: http://localhost:${PORT}/app`);
-  console.log(`🏠 Landing page: http://localhost:${PORT}/`);
-  console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
+// Load SSL certificates
+const httpsOptions = {
+  key: fs.readFileSync(path.join(__dirname, 'certs', 'key.pem')),
+  cert: fs.readFileSync(path.join(__dirname, 'certs', 'cert.pem'))
+};
+
+// Start HTTPS server
+https.createServer(httpsOptions, app).listen(PORT, () => {
+  console.log(`🎭 Photobooth VR server running on https://localhost:${PORT}`);
+  console.log(`📱 Main app: https://localhost:${PORT}/app`);
+  console.log(`🏠 Landing page: https://localhost:${PORT}/`);
+  console.log(`🔍 Health check: https://localhost:${PORT}/api/health`);
+  console.log(`\n⚠️  Using self-signed certificate - accept the browser warning`);
 });

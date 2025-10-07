@@ -2,6 +2,9 @@
  * Three.js Scene Manager - Handles 3D scene creation, lighting, and model management
  */
 
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 export class ThreeSceneManager {
     constructor(container) {
         this.container = container;
@@ -193,9 +196,6 @@ export class ThreeSceneManager {
      */
     async setupControls() {
         try {
-            // Import OrbitControls dynamically
-            const { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js');
-            
             // OrbitControls for camera movement (optional for user interaction)
             this.controls = new OrbitControls(this.camera, this.renderer.domElement);
             this.controls.enableDamping = true;

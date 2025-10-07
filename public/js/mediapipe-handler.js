@@ -1,7 +1,11 @@
 /**
- * MediaPipe Handler - Manages face and hand detection using Google AI Edge MediaPipe
- * Updated for MediaPipe Web Solutions 0.10.14+
+ * MediaPipe Handler - Production-ready face and hand detection
+ * Using MediaPipe Tasks Vision API - Official approach from Google documentation
  */
+
+// Import MediaPipe exactly as per official example
+import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+const { FaceLandmarker, HandLandmarker, FilesetResolver } = vision;
 
 export class MediaPipeHandler {
     constructor() {
@@ -9,7 +13,6 @@ export class MediaPipeHandler {
         this.handLandmarker = null;
         this.isInitialized = false;
         this.isProcessing = false;
-        this.isDemoMode = false;
         
         // Detection results
         this.lastFaceResults = null;
@@ -24,58 +27,25 @@ export class MediaPipeHandler {
         this.frameCount = 0;
         this.lastFrameTime = 0;
         this.fps = 0;
-        
-        // Demo mode animation
-        this.demoAnimationTime = 0;
     }
 
     /**
-     * Initialize MediaPipe models using current Google AI Edge API
+     * Initialize MediaPipe landmarkers using official approach
      */
     async initialize() {
         try {
-            console.log('Initializing MediaPipe Web Solutions...');
+            console.log('Initializing MediaPipe Tasks Vision...');
             
-            // Check if MediaPipe is available globally
-            if (typeof window !== 'undefined' && window.MediaPipe) {
-                console.log('Using global MediaPipe');
-                await this.initializeWithGlobalMediaPipe();
-            } else {
-                console.log('MediaPipe not found globally, falling back to demo mode');
-                this.enableDemoMode();
-                return false;
-            }
-            
-            this.isInitialized = true;
-            console.log('MediaPipe initialized successfully');
-            
-            this.dispatchEvent('mediapipe-ready');
-            return true;
-            
-        } catch (error) {
-            console.error('Failed to initialize MediaPipe:', error);
-            this.handleError('MediaPipe initialization failed', error);
-            this.enableDemoMode();
-            return false;
-        }
-    }
-
-    /**
-     * Initialize using global MediaPipe
-     */
-    async initializeWithGlobalMediaPipe() {
-        try {
-            const { FaceLandmarker, HandLandmarker, FilesetResolver } = window.MediaPipe;
-            
-            // Initialize the wasm files
+            // Create the FilesetResolver for WASM files - exact approach from official example
             const filesetResolver = await FilesetResolver.forVisionTasks(
-                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
             );
-
-            // Initialize Face Landmarker
+            
+            console.log('Loading Face Landmarker model...');
+            // Initialize Face Landmarker - matching official example
             this.faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
                     delegate: "GPU"
                 },
                 outputFaceBlendshapes: true,
@@ -83,22 +53,30 @@ export class MediaPipeHandler {
                 runningMode: "VIDEO",
                 numFaces: 2
             });
+            console.log('✅ Face Landmarker loaded');
 
-            // Initialize Hand Landmarker
+            console.log('Loading Hand Landmarker model...');
+            // Initialize Hand Landmarker - matching official approach
             this.handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO",
                 numHands: 2
             });
+            console.log('✅ Hand Landmarker loaded');
 
-            console.log('Face and Hand Landmarkers initialized');
+            this.isInitialized = true;
+            console.log('✅ MediaPipe initialized successfully');
+            
+            this.dispatchEvent('mediapipe-ready');
+            return true;
             
         } catch (error) {
-            console.error('MediaPipe initialization error:', error);
-            throw error;
+            console.error('❌ MediaPipe initialization failed:', error);
+            this.handleError('MediaPipe initialization failed', error);
+            return false;
         }
     }
 
@@ -110,13 +88,7 @@ export class MediaPipeHandler {
             return;
         }
 
-        // In demo mode, the animation is handled separately
-        if (this.isDemoMode) {
-            this.updateFPS(timestamp);
-            return;
-        }
-
-        if (!videoElement) {
+        if (!videoElement || videoElement.readyState < 2) {
             return;
         }
 
@@ -381,128 +353,12 @@ export class MediaPipeHandler {
     }
 
     /**
-     * Enable demo mode when MediaPipe fails
-     */
-    enableDemoMode() {
-        this.isDemoMode = true;
-        this.isInitialized = true;
-        console.log('Demo mode enabled - using simulated detection data');
-        
-        this.dispatchEvent('mediapipe-ready');
-        this.startDemoAnimation();
-    }
-
-    /**
-     * Start demo animation
-     */
-    startDemoAnimation() {
-        const animateDemo = () => {
-            if (!this.isDemoMode) return;
-            
-            this.demoAnimationTime += 0.016;
-            
-            const faceResults = this.generateDemoFaceData();
-            if (this.onFaceDetection) {
-                this.onFaceDetection(faceResults);
-            }
-            
-            if (Math.sin(this.demoAnimationTime * 0.5) > 0.3) {
-                const handResults = this.generateDemoHandData();
-                if (this.onHandDetection) {
-                    this.onHandDetection(handResults);
-                }
-            }
-            
-            requestAnimationFrame(animateDemo);
-        };
-        
-        animateDemo();
-    }
-
-    /**
-     * Generate demo face data
-     */
-    generateDemoFaceData() {
-        const time = this.demoAnimationTime;
-        
-        const centerX = 0.5 + Math.sin(time * 0.5) * 0.1;
-        const centerY = 0.5 + Math.cos(time * 0.3) * 0.1;
-        const size = 0.3 + Math.sin(time * 0.7) * 0.05;
-        
-        const landmarks = [];
-        for (let i = 0; i < 468; i++) {
-            const angle = (i / 468) * Math.PI * 2;
-            const radius = size * 0.5 * (0.8 + Math.sin(i * 0.1 + time) * 0.2);
-            landmarks.push({
-                x: centerX + Math.cos(angle) * radius,
-                y: centerY + Math.sin(angle) * radius,
-                z: Math.sin(i * 0.05 + time) * 0.01
-            });
-        }
-        
-        return [{
-            landmarks: landmarks,
-            boundingBox: {
-                x: centerX - size * 0.5,
-                y: centerY - size * 0.5,
-                width: size,
-                height: size,
-                centerX: centerX,
-                centerY: centerY
-            },
-            pose: {
-                yaw: Math.sin(time * 0.4) * 20,
-                pitch: Math.cos(time * 0.3) * 15,
-                roll: Math.sin(time * 0.2) * 10
-            },
-            confidence: 0.9
-        }];
-    }
-
-    /**
-     * Generate demo hand data
-     */
-    generateDemoHandData() {
-        const time = this.demoAnimationTime;
-        
-        const hands = [];
-        const rightHandX = 0.7 + Math.sin(time * 0.8) * 0.15;
-        const rightHandY = 0.4 + Math.cos(time * 0.6) * 0.1;
-        
-        const rightHandLandmarks = [];
-        for (let i = 0; i < 21; i++) {
-            rightHandLandmarks.push({
-                x: rightHandX + (Math.random() - 0.5) * 0.1,
-                y: rightHandY + (Math.random() - 0.5) * 0.1,
-                z: Math.random() * 0.02
-            });
-        }
-        
-        hands.push({
-            landmarks: rightHandLandmarks,
-            boundingBox: {
-                x: rightHandX - 0.05,
-                y: rightHandY - 0.05,
-                width: 0.1,
-                height: 0.1,
-                centerX: rightHandX,
-                centerY: rightHandY
-            },
-            gesture: ['open', 'fist', 'point', 'peace'][Math.floor(time * 0.5) % 4],
-            confidence: 0.8
-        });
-        
-        return hands;
-    }
-
-    /**
      * Get current status
      */
     getStatus() {
         return {
             isInitialized: this.isInitialized,
             isProcessing: this.isProcessing,
-            isDemoMode: this.isDemoMode,
             fps: this.fps,
             hasFaceResults: !!this.lastFaceResults,
             hasHandResults: !!this.lastHandResults,
@@ -517,7 +373,6 @@ export class MediaPipeHandler {
     destroy() {
         this.isInitialized = false;
         this.isProcessing = false;
-        this.isDemoMode = false;
         
         if (this.faceLandmarker) {
             this.faceLandmarker.close();
