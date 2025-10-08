@@ -47,7 +47,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Session configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'photobooth-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET || 'fotomaton-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -96,7 +96,7 @@ const requirePassword = (req, res, next) => {
   }
   
   const { password } = req.body || {};
-  const correctPassword = process.env.APP_PASSWORD || 'photobooth2024';
+  const correctPassword = process.env.APP_PASSWORD || 'fotomaton2024';
   
   if (password === correctPassword) {
     req.session.authenticated = true;
@@ -122,7 +122,7 @@ app.get('/', (req, res) => {
 // Password verification endpoint
 app.post('/verify-password', (req, res) => {
   const { password } = req.body;
-  const correctPassword = process.env.APP_PASSWORD || 'photobooth2024';
+  const correctPassword = process.env.APP_PASSWORD || 'fotomaton2024';
   
   if (password === correctPassword) {
     req.session.authenticated = true;
@@ -266,7 +266,7 @@ app.get('/:sessionId/download', (req, res) => {
     return res.status(404).json({ error: 'Photo not found' });
   }
   
-  const fileName = `photobooth-${sessionId}.png`;
+  const fileName = `fotomaton-${sessionId}.png`;
   res.download(session.photoPath, fileName);
 });
 
@@ -315,7 +315,7 @@ if (USE_HTTPS) {
     };
     
     https.createServer(httpsOptions, app).listen(PORT, () => {
-      console.log(`\n🎭 Photobooth VR server running on https://localhost:${PORT}`);
+      console.log(`\n🎭 Fotomaton VR server running on https://localhost:${PORT}`);
       console.log(`📱 Main app: https://localhost:${PORT}/app`);
       console.log(`🏠 Landing page: https://localhost:${PORT}/`);
       console.log(`🔍 Health check: https://localhost:${PORT}/api/health`);
@@ -329,7 +329,7 @@ if (USE_HTTPS) {
 } else {
   // Production mode: HTTP (behind reverse proxy)
   app.listen(PORT, () => {
-    console.log(`\n🎭 Photobooth VR server running on http://localhost:${PORT}`);
+    console.log(`\n🎭 Fotomaton VR server running on http://localhost:${PORT}`);
     console.log(`📱 Main app: http://localhost:${PORT}/app`);
     console.log(`🏠 Landing page: http://localhost:${PORT}/`);
     console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);

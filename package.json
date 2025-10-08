@@ -1,22 +1,22 @@
 {
-  "name": "photoboth-vr-webapp",
+  "name": "fotomaton-vr-webapp",
   "version": "1.0.0",
-  "description": "3D interactive photobooth with face and hand tracking",
+  "description": "3D interactive fotomaton with face and hand tracking",
   "type": "module",
   "main": "server/app.js",
   "scripts": {
     "start": "NODE_ENV=production node server/app.js",
     "dev": "NODE_ENV=development nodemon server/app.js",
     "build": "echo 'No build process needed for vanilla JS'",
-    "docker:build": "docker build -t photoboth-vr .",
-    "docker:run": "docker run -p 7000:7000 photoboth-vr"
+    "docker:build": "docker build -t fotomaton-vr .",
+    "docker:run": "docker run -p 7000:7000 fotomaton-vr"
   },
   "keywords": [
     "three.js",
     "p5.js",
     "mediapipe",
     "computer-vision",
-    "photobooth",
+    "fotomaton",
     "3d",
     "web-app"
   ],

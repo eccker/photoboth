@@ -1,5 +1,5 @@
 /**
- * Main Application - Coordinates all components for the VR Photobooth
+ * Main Application - Coordinates all components for the VR Fotomaton
  */
 
 import { CameraManager } from './camera-manager.js';
@@ -8,7 +8,7 @@ import { ThreeSceneManager } from './three-scene.js';
 import { VirtualInteractionHandler } from './virtual-interaction.js';
 import { PhotoCaptureManager } from './photo-capture.js';
 
-class VRPhotoboothApp {
+class VRFotomatonApp {
     constructor() {
         // Component managers
         this.cameraManager = null;
@@ -44,7 +44,7 @@ class VRPhotoboothApp {
         this.logoImage = null;
         this.loadLogoImage();
         
-        console.log('VR Photobooth App created');
+        console.log('VR Fotomaton App created');
     }
 
     /**
@@ -70,7 +70,7 @@ class VRPhotoboothApp {
      */
     async initialize() {
         try {
-            console.log('Initializing VR Photobooth App...');
+            console.log('Initializing VR Fotomaton App...');
             
             // Show loading indicator
             this.showLoading('Initializing camera and detection systems...');
@@ -101,7 +101,7 @@ class VRPhotoboothApp {
                 'Demo mode - MediaPipe unavailable' : 'System ready';
             this.updateStatus('connected', statusMessage);
             
-            console.log('VR Photobooth App initialized successfully');
+            console.log('VR Fotomaton App initialized successfully');
             
         } catch (error) {
             console.error('Failed to initialize app:', error);
@@ -938,7 +938,7 @@ class VRPhotoboothApp {
      * Destroy the application
      */
     destroy() {
-        console.log('Destroying VR Photobooth App...');
+        console.log('Destroying VR Fotomaton App...');
         
         // Stop main loop
         this.pause();
@@ -966,7 +966,7 @@ class VRPhotoboothApp {
         
         this.isInitialized = false;
         
-        console.log('VR Photobooth App destroyed');
+        console.log('VR Fotomaton App destroyed');
     }
 }
 
@@ -981,16 +981,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // Create and initialize the app
-        app = new VRPhotoboothApp();
+        app = new VRFotomatonApp();
         await app.initialize();
         
         // Make app globally available for debugging
-        window.photoboothApp = app;
+        window.fotomatonApp = app;
         
-        console.log('VR Photobooth ready!');
+        console.log('VR Fotomaton ready!');
         
     } catch (error) {
-        console.error('Failed to start VR Photobooth:', error);
+        console.error('Failed to start VR Fotomaton:', error);
         
         // Show error to user
         const loadingIndicator = document.getElementById('loading-indicator');
@@ -1016,4 +1016,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Export for module usage
-export { VRPhotoboothApp };
+export { VRFotomatonApp };

@@ -1,6 +1,6 @@
-# VR Photobooth - Interactive 3D Experience
+# VR Fotomaton - Interactive 3D Experience
 
-A cutting-edge web application that combines Three.js, MediaPipe, and computer vision to create an immersive photobooth experience with real-time face and hand tracking.
+A cutting-edge web application that combines Three.js, MediaPipe, and computer vision to create an immersive fotomaton experience with real-time face and hand tracking.
 
 ## 🌟 Features
 
@@ -26,7 +26,7 @@ A cutting-edge web application that combines Three.js, MediaPipe, and computer v
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd photoboth
+   cd fotomaton
    ```
 
 2. **Install dependencies**
@@ -41,14 +41,14 @@ A cutting-edge web application that combines Three.js, MediaPipe, and computer v
 
 4. **Access the application**
    - Landing page: http://localhost:7000/
-   - Main app: http://localhost:7000/app (password: `photobooth2024`)
+   - Main app: http://localhost:7000/app (password: `fotomaton2024`)
 
 ### Production Deployment
 
 1. **Using Docker**
    ```bash
-   docker build -t photobooth-vr .
-   docker run -p 7000:7000 photobooth-vr
+   docker build -t fotomaton-vr .
+   docker run -p 7000:7000 fotomaton-vr
    ```
 
 2. **Using Docker Compose**
@@ -99,7 +99,7 @@ A cutting-edge web application that combines Three.js, MediaPipe, and computer v
 ```env
 NODE_ENV=production
 PORT=7000
-APP_PASSWORD=photobooth2024
+APP_PASSWORD=fotomaton2024
 SESSION_SECRET=your-secret-key-change-in-production
 ```
 
@@ -152,7 +152,7 @@ SESSION_SECRET=your-secret-key-change-in-production
 
 ### Project Structure
 ```
-photoboth/
+fotomaton/
 ├── public/                 # Frontend assets
 │   ├── app/               # Main application
 │   ├── css/               # Stylesheets
@@ -204,16 +204,16 @@ photoboth/
 
 ### Debug Mode
 
-Access `window.photoboothApp` in browser console for runtime inspection:
+Access `window.fotomatonApp` in browser console for runtime inspection:
 
 ```javascript
 // Check application status
-console.log(window.photoboothApp.getStatus());
+console.log(window.fotomatonApp.getStatus());
 
 // Access individual components
-window.photoboothApp.cameraManager.getStatus();
-window.photoboothApp.mediaPipeHandler.getStatus();
-window.photoboothApp.sceneManager.getStatus();
+window.fotomatonApp.cameraManager.getStatus();
+window.fotomatonApp.mediaPipeHandler.getStatus();
+window.fotomatonApp.sceneManager.getStatus();
 ```
 
 ## 📄 License

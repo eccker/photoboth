@@ -43,7 +43,7 @@ APP_PASSWORD=your-secure-password
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name photobooth.yourdomain.com;
+    server_name fotomaton.yourdomain.com;
 
     ssl_certificate /path/to/your/cert.pem;
     ssl_certificate_key /path/to/your/key.pem;
@@ -64,24 +64,24 @@ server {
 
 ### Caddy Example
 ```caddy
-photobooth.yourdomain.com {
+fotomaton.yourdomain.com {
     reverse_proxy localhost:7000
 }
 ```
 
 ## Systemd Service (Linux)
 
-Create `/etc/systemd/system/photobooth.service`:
+Create `/etc/systemd/system/fotomaton.service`:
 
 ```ini
 [Unit]
-Description=Photobooth VR Application
+Description=Fotomaton VR Application
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/path/to/photoboth
+WorkingDirectory=/path/to/fotomaton
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/npm start
 Restart=on-failure
@@ -93,9 +93,9 @@ WantedBy=multi-user.target
 
 Enable and start:
 ```bash
-sudo systemctl enable photobooth
-sudo systemctl start photobooth
-sudo systemctl status photobooth
+sudo systemctl enable fotomaton
+sudo systemctl start fotomaton
+sudo systemctl status fotomaton
 ```
 
 ## Docker Deployment
@@ -104,15 +104,15 @@ The application includes Docker support:
 
 ```bash
 # Build
-docker build -t photobooth-vr .
+docker build -t fotomaton-vr .
 
 # Run in production mode
 docker run -d \
   -p 7000:7000 \
   -e NODE_ENV=production \
   -e SESSION_SECRET=your-secret \
-  --name photobooth \
-  photobooth-vr
+  --name fotomaton \
+  fotomaton-vr
 ```
 
 ## Health Check

@@ -475,7 +475,7 @@ export class PhotoCaptureManager {
      */
     addWatermark(ctx, width, height) {
         const timestamp = new Date().toLocaleString();
-        const watermarkText = `VR Photobooth - ${timestamp}`;
+        const watermarkText = `VR Fotomaton - ${timestamp}`;
         
         ctx.save();
         

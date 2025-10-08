@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Photo - VR Photobooth</title>
+    <title>Your Photo - VR Fotomaton</title>
     <style>
         * {
             margin: 0;
@@ -213,7 +213,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="logo">VR Photobooth</h1>
+        <h1 class="logo">VR Fotomaton</h1>
         <p>Your captured moment is ready!</p>
         
         <div class="photo-container" id="photo-container">
@@ -346,13 +346,13 @@
                 
                 const img = document.createElement('img');
                 img.className = 'photo';
-                img.alt = 'Your VR Photobooth Photo';
+                img.alt = 'Your VR Fotomaton Photo';
                 
                 // Set up download link
                 const downloadBtn = document.getElementById('download-btn');
                 if (downloadBtn) {
                     downloadBtn.href = `/${sessionId}/download`;
-                    downloadBtn.download = `photobooth-${sessionId}.png`;
+                    downloadBtn.download = `fotomaton-${sessionId}.png`;
                 }
                 
                 // Load image
@@ -423,7 +423,7 @@
          */
         function shareToFacebook() {
             const url = encodeURIComponent(shareUrl);
-            const text = encodeURIComponent('Check out my VR Photobooth photo!');
+            const text = encodeURIComponent('Check out my VR Fotomaton photo!');
             window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank', 'width=600,height=400');
         }
 
@@ -432,7 +432,7 @@
          */
         function shareToTwitter() {
             const url = encodeURIComponent(shareUrl);
-            const text = encodeURIComponent('Just captured an amazing moment with VR Photobooth! 📸✨');
+            const text = encodeURIComponent('Just captured an amazing moment with VR Fotomaton! 📸✨');
             window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'width=600,height=400');
         }
 
@@ -452,7 +452,7 @@
          * Share to WhatsApp
          */
         function shareToWhatsApp() {
-            const text = encodeURIComponent(`Check out my VR Photobooth photo! ${shareUrl}`);
+            const text = encodeURIComponent(`Check out my VR Fotomaton photo! ${shareUrl}`);
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
 
@@ -460,8 +460,8 @@
          * Share by Email
          */
         function shareByEmail() {
-            const subject = encodeURIComponent('My VR Photobooth Photo');
-            const body = encodeURIComponent(`Hi!\n\nI just captured this amazing photo using VR Photobooth! Check it out:\n\n${shareUrl}\n\nBest regards!`);
+            const subject = encodeURIComponent('My VR Fotomaton Photo');
+            const body = encodeURIComponent(`Hi!\n\nI just captured this amazing photo using VR Fotomaton! Check it out:\n\n${shareUrl}\n\nBest regards!`);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
 
@@ -493,8 +493,8 @@
         function shareNative() {
             if (navigator.share) {
                 navigator.share({
-                    title: 'VR Photobooth Photo',
-                    text: 'Check out my VR Photobooth photo!',
+                    title: 'VR Fotomaton Photo',
+                    text: 'Check out my VR Fotomaton photo!',
                     url: shareUrl
                 }).catch(err => console.log('Error sharing:', err));
             } else {
