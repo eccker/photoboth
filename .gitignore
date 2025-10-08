@@ -56,3 +56,4 @@ coverage/
 public/captures/
 *.jpg
 *.png
+node_modules/
