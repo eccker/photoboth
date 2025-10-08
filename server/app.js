@@ -18,11 +18,13 @@ const app = express();
 const PORT = process.env.PORT || 7000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const USE_HTTPS = NODE_ENV === 'development'; // HTTPS only in development
+const PUBLIC_URL = process.env.PUBLIC_URL || null; // Optional: override auto-detection
 
 console.log(`🚀 Starting server in ${NODE_ENV} mode`);
 console.log(`🔒 HTTPS: ${USE_HTTPS ? 'Enabled (self-signed)' : 'Disabled (behind reverse proxy)'}`);
-
-// Security and performance middleware - CSP configured for MediaPipe
+if (PUBLIC_URL) {
+  console.log(`🌐 Public URL override: ${PUBLIC_URL}`);
+}
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -168,7 +170,20 @@ app.post('/api/upload/:sessionId', upload.single('photo'), async (req, res) => {
     session.photoPath = req.file.path;
     
     // Generate QR code for the photo viewing URL
-    const photoViewUrl = `https://localhost:${PORT}/${sessionId}/`;
+    let photoViewUrl;
+    
+    if (PUBLIC_URL) {
+      // Use configured public URL
+      photoViewUrl = `${PUBLIC_URL}/${sessionId}/`;
+    } else {
+      // Auto-detect from request headers (supports reverse proxy)
+      const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+      photoViewUrl = `${protocol}://${host}/${sessionId}/`;
+    }
+    
+    console.log(`📸 Generated photo URL: ${photoViewUrl}`);
+    
     const qrCodeDataUrl = await QRCode.toDataURL(photoViewUrl, {
       width: 256,
       margin: 2,
@@ -257,11 +272,19 @@ app.get('/:sessionId/download', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  // Detect the public URL
+  const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+  const detectedUrl = `${protocol}://${host}`;
+  
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    sessions: photoSessions.size
+    sessions: photoSessions.size,
+    environment: NODE_ENV,
+    detectedUrl: PUBLIC_URL || detectedUrl,
+    urlSource: PUBLIC_URL ? 'configured' : 'auto-detected'
   });
 });
 
