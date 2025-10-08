@@ -5,8 +5,8 @@
   "type": "module",
   "main": "server/app.js",
   "scripts": {
-    "start": "node server/app.js",
-    "dev": "nodemon server/app.js",
+    "start": "NODE_ENV=production node server/app.js",
+    "dev": "NODE_ENV=development nodemon server/app.js",
     "build": "echo 'No build process needed for vanilla JS'",
     "docker:build": "docker build -t photoboth-vr .",
     "docker:run": "docker run -p 7000:7000 photoboth-vr"

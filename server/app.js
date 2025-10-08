@@ -16,6 +16,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 7000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const USE_HTTPS = NODE_ENV === 'development'; // HTTPS only in development
+
+console.log(`🚀 Starting server in ${NODE_ENV} mode`);
+console.log(`🔒 HTTPS: ${USE_HTTPS ? 'Enabled (self-signed)' : 'Disabled (behind reverse proxy)'}`);
 
 // Security and performance middleware - CSP configured for MediaPipe
 app.use(helmet({
@@ -44,7 +49,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true, // HTTPS enabled
+    secure: USE_HTTPS, // HTTPS only in development
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -277,17 +282,34 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Load SSL certificates
-const httpsOptions = {
-  key: fs.readFileSync(path.join(__dirname, 'certs', 'key.pem')),
-  cert: fs.readFileSync(path.join(__dirname, 'certs', 'cert.pem'))
-};
-
-// Start HTTPS server
-https.createServer(httpsOptions, app).listen(PORT, () => {
-  console.log(`🎭 Photobooth VR server running on https://localhost:${PORT}`);
-  console.log(`📱 Main app: https://localhost:${PORT}/app`);
-  console.log(`🏠 Landing page: https://localhost:${PORT}/`);
-  console.log(`🔍 Health check: https://localhost:${PORT}/api/health`);
-  console.log(`\n⚠️  Using self-signed certificate - accept the browser warning`);
-});
+// Start server based on environment
+if (USE_HTTPS) {
+  // Development mode: HTTPS with self-signed certificate
+  try {
+    const httpsOptions = {
+      key: fs.readFileSync(path.join(__dirname, 'certs', 'key.pem')),
+      cert: fs.readFileSync(path.join(__dirname, 'certs', 'cert.pem'))
+    };
+    
+    https.createServer(httpsOptions, app).listen(PORT, () => {
+      console.log(`\n🎭 Photobooth VR server running on https://localhost:${PORT}`);
+      console.log(`📱 Main app: https://localhost:${PORT}/app`);
+      console.log(`🏠 Landing page: https://localhost:${PORT}/`);
+      console.log(`🔍 Health check: https://localhost:${PORT}/api/health`);
+      console.log(`\n⚠️  Using self-signed certificate - accept the browser warning\n`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to load SSL certificates:', error.message);
+    console.error('💡 Generate certificates with: openssl req -x509 -newkey rsa:4096 -keyout server/certs/key.pem -out server/certs/cert.pem -days 365 -nodes');
+    process.exit(1);
+  }
+} else {
+  // Production mode: HTTP (behind reverse proxy)
+  app.listen(PORT, () => {
+    console.log(`\n🎭 Photobooth VR server running on http://localhost:${PORT}`);
+    console.log(`📱 Main app: http://localhost:${PORT}/app`);
+    console.log(`🏠 Landing page: http://localhost:${PORT}/`);
+    console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`\n✅ Production mode - ensure reverse proxy handles HTTPS\n`);
+  });
+}
