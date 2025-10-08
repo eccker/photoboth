@@ -40,7 +40,29 @@ class VRPhotoboothApp {
         this.isCapturingFromGesture = false;
         this.lastGestureState = null;
         
+        // Logo overlay
+        this.logoImage = null;
+        this.loadLogoImage();
+        
         console.log('VR Photobooth App created');
+    }
+
+    /**
+     * Load logo image for face overlay
+     */
+    async loadLogoImage() {
+        try {
+            const img = new Image();
+            img.src = '/assets/logo_vector_rekcce_master_002.svg';
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+            this.logoImage = img;
+            console.log('✅ Logo image loaded successfully');
+        } catch (error) {
+            console.warn('⚠️ Failed to load logo image:', error);
+        }
     }
 
     /**
@@ -570,9 +592,50 @@ class VRPhotoboothApp {
                             normalizedHeight * scale.height
                         );
                     }
+                    
+                    // Draw logo at center of face
+                    if (this.logoImage) {
+                        this.drawLogoOnFace(ctx, bbox, scale);
+                    }
                 }
             }
         });
+    }
+
+    /**
+     * Draw logo image at the center of the detected face
+     */
+    drawLogoOnFace(ctx, bbox, scale) {
+        // Normalize bounding box to visible portion
+        const normalizedX = (bbox.x - scale.cropX) / scale.cropWidth;
+        const normalizedY = (bbox.y - scale.cropY) / scale.cropHeight;
+        const normalizedWidth = bbox.width / scale.cropWidth;
+        const normalizedHeight = bbox.height / scale.cropHeight;
+        
+        // Skip if outside visible area
+        if (normalizedX + normalizedWidth < 0 || normalizedX > 1 || 
+            normalizedY + normalizedHeight < 0 || normalizedY > 1) {
+            return;
+        }
+        
+        // Calculate center of face (flip X for mirrored video)
+        const centerX = (1 - normalizedX - normalizedWidth / 2) * scale.width + scale.offsetX;
+        const centerY = (normalizedY + normalizedHeight / 2) * scale.height + scale.offsetY;
+        
+        // Calculate logo size (proportional to face size)
+        const logoSize = Math.min(normalizedWidth * scale.width, normalizedHeight * scale.height) * 0.6;
+        
+        // Draw logo centered on face
+        ctx.save();
+        ctx.globalAlpha = 0.8; // Slight transparency
+        ctx.drawImage(
+            this.logoImage,
+            centerX - logoSize / 2,
+            centerY - logoSize / 2,
+            logoSize,
+            logoSize
+        );
+        ctx.restore();
     }
 
     /**
